@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>毛利计算器</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green: #34C759;
+  --red: #FF3B30;
+  --blue: #007AFF;
+  --text: #1c1c1e;
+  --text-secondary: #6e6e73;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(160deg, #e8f0fe 0%, #f0e6f6 30%, #fce4ec 60%, #e0f2e9 100%);
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  padding: 20px 16px 40px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body::before {
+  content: '';
+  position: fixed;
+  top: -120px; right: -80px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(0,122,255,0.12) 0%, transparent 70%);
+  border-radius: 50%; pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -100px; left: -60px;
+  width: 260px; height: 260px;
+  background: radial-gradient(circle, rgba(175,82,222,0.10) 0%, transparent 70%);
+  border-radius: 50%; pointer-events: none;
+}
+
+.container { width: 100%; max-width: 400px; position: relative; z-index: 1; }
+
+.title { text-align: center; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin-bottom: 6px; }
+.subtitle { text-align: center; font-size: 15px; color: var(--text-secondary); margin-bottom: 24px; }
+
+/* 三档模式切换 */
+.segment {
+  display: flex;
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-radius: 14px;
+  padding: 4px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04), inset 0 0 0 1px rgba(255,255,255,0.6);
+}
+.segment button {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  color: var(--text-secondary);
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+.segment button.active {
+  background: white;
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.04);
+}
+
+/* 卡片 */
+.card {
+  background: rgba(255,255,255,0.52);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 22px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.04),
+    0 1px 3px rgba(0,0,0,0.03),
+    inset 0 0 0 1px rgba(255,255,255,0.55);
+}
+
+/* 输入行 */
+.input-row {
+  display: flex; align-items: center; margin-bottom: 12px;
+}
+.input-row:last-of-type { margin-bottom: 0; }
+.input-row label {
+  font-size: 15px; font-weight: 500; color: var(--text); width: 56px; flex-shrink: 0;
+}
+.input-wrapper {
+  flex: 1;
+  display: flex; align-items: center;
+  background: rgba(0,0,0,0.03);
+  border-radius: 12px; padding: 0 14px;
+  transition: box-shadow 0.2s;
+}
+.input-wrapper:focus-within {
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.2);
+  background: rgba(0,122,255,0.03);
+}
+.input-wrapper .prefix { font-size: 16px; color: var(--text-secondary); margin-right: 4px; }
+.input-wrapper .suffix { font-size: 13px; color: var(--text-secondary); margin-left: 4px; }
+.input-wrapper input {
+  flex: 1; border: none; background: transparent;
+  font-size: 18px; font-weight: 500; color: var(--text);
+  padding: 12px 0; outline: none; font-family: inherit; min-width: 0;
+}
+.input-wrapper input::placeholder { color: #c7c7cc; }
+
+/* 毛利率快捷预设 */
+.rate-presets {
+  display: flex; gap: 8px; margin-top: 12px; padding-left: 56px;
+}
+.rate-presets button {
+  flex: 1;
+  padding: 8px 0; border: none; border-radius: 10px;
+  font-size: 14px; font-weight: 500; font-family: inherit;
+  cursor: pointer;
+  background: rgba(0,122,255,0.08);
+  color: var(--blue);
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.rate-presets button:active {
+  background: rgba(0,122,255,0.2);
+  transform: scale(0.95);
+}
+
+/* 清空按钮 */
+.clear-row {
+  display: flex; justify-content: flex-end; margin-top: 14px;
+}
+.clear-row button {
+  background: none; border: none; font-size: 13px; color: var(--text-secondary);
+  padding: 6px 12px; cursor: pointer; font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 结果区大数字 */
+.suggested-price {
+  text-align: center;
+  padding: 16px 0 8px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  margin-top: 4px;
+}
+.suggested-price .label { font-size: 14px; color: var(--text-secondary); margin-bottom: 4px; }
+.suggested-price .value {
+  font-size: 40px; font-weight: 700; letter-spacing: -0.02em; color: var(--blue);
+}
+
+/* 结果卡片 */
+.results {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px;
+}
+.result-item {
+  background: rgba(255,255,255,0.52);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 18px; padding: 16px 10px; text-align: center;
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.04),
+    0 1px 3px rgba(0,0,0,0.03),
+    inset 0 0 0 1px rgba(255,255,255,0.55);
+  transition: background 0.3s;
+}
+.result-item .rlabel { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.result-item .rvalue { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); word-break: break-all; }
+.result-item.profit .rvalue { color: var(--green); }
+.result-item.loss .rvalue { color: var(--red); }
+
+/* 计算按钮 */
+.calc-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; padding: 14px 0; margin-bottom: 6px;
+  border: none; border-radius: 16px;
+  background: rgba(0,122,255,0.88);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  color: white; font-size: 17px; font-weight: 600; font-family: inherit;
+  cursor: pointer;
+  box-shadow:
+    0 4px 20px rgba(0,122,255,0.25),
+    inset 0 0 0 1px rgba(255,255,255,0.25);
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+.calc-btn:active { transform: scale(0.97); background: rgba(0,122,255,1); }
+
+/* 验证提示 */
+.calc-error {
+  text-align: center; font-size: 13px; color: var(--red);
+  margin-bottom: 16px; min-height: 20px; display: none;
+}
+
+/* 摇动动画 */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.shake { animation: shake 0.4s ease; }
+
+/* 历史 */
+.history-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+.history-list { display: flex; flex-direction: column; gap: 8px; }
+.history-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
+  font-size: 14px; cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+.history-item:active { transform: scale(0.98); }
+.history-item .hmain { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.history-item .hmode { font-size: 11px; color: var(--text-secondary); }
+.history-item .hvalues { font-weight: 500; color: var(--text); }
+.history-item .hmargin { font-weight: 600; font-size: 16px; flex-shrink: 0; margin-left: 10px; }
+.history-item .hmargin.profit { color: var(--green); }
+.history-item .hmargin.loss { color: var(--red); }
+.history-item .hdel {
+  position: absolute; top: 4px; right: 6px;
+  width: 22px; height: 22px; border-radius: 11px; border: none;
+  background: rgba(0,0,0,0.06); color: var(--text-secondary);
+  font-size: 12px; line-height: 22px; text-align: center;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  opacity: 0; transition: opacity 0.2s;
+}
+.history-item:hover .hdel, .history-item:active .hdel { opacity: 1; }
+
+.history-empty { text-align: center; color: #c7c7cc; font-size: 14px; padding: 20px 0; }
+
+.clear-history {
+  display: block; margin: 12px auto 0;
+  background: none; border: none; color: var(--text-secondary);
+  font-size: 13px; padding: 8px 16px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 通用 */
+button { -webkit-tap-highlight-color: transparent; }
+button:active { transform: scale(0.96); transition: transform 0.1s; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1 class="title">毛利计算器</h1>
+  <p class="subtitle">快速计算利润与定价</p>
+
+  <!-- 模式切换 -->
+  <div class="segment">
+    <button id="btnForward" class="active" onclick="switchMode('forward')">正向</button>
+    <button id="btnReverse" onclick="switchMode('reverse')">定价</button>
+    <button id="btnBargain" onclick="switchMode('bargain')">核价</button>
+  </div>
+
+  <!-- 正向计算输入 -->
+  <div class="card" id="cardForward">
+    <div class="input-row">
+      <label>售价</label>
+      <div class="input-wrapper">
+        <span class="prefix">¥</span>
+        <input type="number" id="price" placeholder="0" oninput="calcForward()">
+      </div>
+    </div>
+    <div class="input-row">
+      <label>成本</label>
+      <div class="input-wrapper">
+        <span class="prefix">¥</span>
+        <input type="number" id="cost" placeholder="0" oninput="calcForward()">
+      </div>
+    </div>
+    <div class="clear-row">
+      <button onclick="clearInputs()">清空</button>
+    </div>
+  </div>
+
+  <!-- 反向计算输入（定价） -->
+  <div class="card" id="cardReverse" style="display:none;">
+    <div class="input-row">
+      <label>成本</label>
+      <div class="input-wrapper">
+        <span class="prefix">¥</span>
+        <input type="number" id="revCost" placeholder="0" oninput="calcReverse()">
+      </div>
+    </div>
+    <div class="input-row">
+      <label>毛利率</label>
+      <div class="input-wrapper">
+        <input type="number" id="revRate" placeholder="0" oninput="calcReverse()" style="text-align:right;">
+        <span class="suffix">%</span>
+      </div>
+    </div>
+    <div class="rate-presets">
+      <button onclick="setRatePreset(20)">20%</button>
+      <button onclick="setRatePreset(30)">30%</button>
+      <button onclick="setRatePreset(40)">40%</button>
+      <button onclick="setRatePreset(50)">50%</button>
+    </div>
+    <div class="suggested-price" id="suggestedPrice" style="display:none;">
+      <div class="label">建议售价</div>
+      <div class="value" id="suggestedValue">¥0</div>
+    </div>
+    <div class="clear-row">
+      <button onclick="clearInputs()">清空</button>
+    </div>
+  </div>
+
+  <!-- 核价模式输入（已知售价和毛利率 → 最高进价） -->
+  <div class="card" id="cardBargain" style="display:none;">
+    <div class="input-row">
+      <label>售价</label>
+      <div class="input-wrapper">
+        <span class="prefix">¥</span>
+        <input type="number" id="barPrice" placeholder="0" oninput="calcBargain()">
+      </div>
+    </div>
+    <div class="input-row">
+      <label>毛利率</label>
+      <div class="input-wrapper">
+        <input type="number" id="barRate" placeholder="0" oninput="calcBargain()" style="text-align:right;">
+        <span class="suffix">%</span>
+      </div>
+    </div>
+    <div class="rate-presets">
+      <button onclick="setRatePreset(20)">20%</button>
+      <button onclick="setRatePreset(30)">30%</button>
+      <button onclick="setRatePreset(40)">40%</button>
+      <button onclick="setRatePreset(50)">50%</button>
+    </div>
+    <div class="suggested-price" id="maxCostBox" style="display:none;">
+      <div class="label">最高进货价</div>
+      <div class="value" id="maxCostValue">¥0</div>
+    </div>
+    <div class="clear-row">
+      <button onclick="clearInputs()">清空</button>
+    </div>
+  </div>
+
+  <!-- 计算按钮 -->
+  <button class="calc-btn" id="calcBtn" onclick="doCalculate()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    计算
+  </button>
+  <div class="calc-error" id="calcError"></div>
+
+  <!-- 结果 -->
+  <div class="results">
+    <div class="result-item" id="riAmount">
+      <div class="rlabel">毛利额</div>
+      <div class="rvalue" id="rvAmount">¥0</div>
+    </div>
+    <div class="result-item" id="riRate">
+      <div class="rlabel">毛利率</div>
+      <div class="rvalue" id="rvRate">0%</div>
+    </div>
+    <div class="result-item" id="riCostRate">
+      <div class="rlabel">成本利润率</div>
+      <div class="rvalue" id="rvCostRate">0%</div>
+    </div>
+  </div>
+
+  <!-- 历史 -->
+  <h2 class="history-title">最近计算</h2>
+  <div class="history-list" id="historyList">
+    <div class="history-empty">暂无记录</div>
+  </div>
+  <button class="clear-history" id="clearBtn" style="display:none;" onclick="clearHistory()">清除全部记录</button>
+</div>
+
+<script>
+// State
+let mode = 'forward';
+
+// ── 模式切换 ──
+function switchMode(m) {
+  mode = m;
+  document.getElementById('btnForward').classList.toggle('active', m === 'forward');
+  document.getElementById('btnReverse').classList.toggle('active', m === 'reverse');
+  document.getElementById('btnBargain').classList.toggle('active', m === 'bargain');
+  document.getElementById('cardForward').style.display = m === 'forward' ? '' : 'none';
+  document.getElementById('cardReverse').style.display = m === 'reverse' ? '' : 'none';
+  document.getElementById('cardBargain').style.display = m === 'bargain' ? '' : 'none';
+  hideError();
+  if (m === 'forward') calcForward();
+  else if (m === 'reverse') calcReverse();
+  else calcBargain();
+}
+
+// ── 格式化 ──
+function fmt(n) {
+  if (!isFinite(n) || isNaN(n)) return '—';
+  return n.toFixed(2);
+}
+function fmtPct(n) {
+  if (!isFinite(n) || isNaN(n)) return '—%';
+  return n.toFixed(2) + '%';
+}
+
+// ── 颜色 ──
+function setResultColors(isProfit) {
+  ['riAmount','riRate','riCostRate'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('profit', 'loss');
+    if (isProfit !== null) el.classList.add(isProfit ? 'profit' : 'loss');
+  });
+}
+
+// ── 实时计算（不记录）──
+function calcForward() {
+  const price = parseFloat(document.getElementById('price').value) || 0;
+  const cost  = parseFloat(document.getElementById('cost').value) || 0;
+
+  if (price <= 0 || cost < 0) {
+    document.getElementById('rvAmount').textContent = '¥0';
+    document.getElementById('rvRate').textContent = '0%';
+    document.getElementById('rvCostRate').textContent = '0%';
+    setResultColors(null);
+    return;
+  }
+
+  const amount   = price - cost;
+  const rate     = (amount / price) * 100;
+  const costRate = cost > 0 ? (amount / cost) * 100 : Infinity;
+
+  document.getElementById('rvAmount').textContent    = (amount >= 0 ? '¥' : '-¥') + fmt(Math.abs(amount));
+  document.getElementById('rvRate').textContent      = fmtPct(rate);
+  document.getElementById('rvCostRate').textContent  = costRate === Infinity ? '—' : fmtPct(costRate);
+  setResultColors(amount >= 0);
+}
+
+function calcReverse() {
+  const cost = parseFloat(document.getElementById('revCost').value) || 0;
+  const rate = parseFloat(document.getElementById('revRate').value) || 0;
+  const spEl = document.getElementById('suggestedPrice');
+
+  if (cost <= 0 || rate <= 0 || rate >= 100) {
+    spEl.style.display = 'none';
+    document.getElementById('rvAmount').textContent = '¥0';
+    document.getElementById('rvRate').textContent = '0%';
+    document.getElementById('rvCostRate').textContent = '0%';
+    setResultColors(null);
+    return;
+  }
+
+  const price  = cost / (1 - rate / 100);
+  const amount = price - cost;
+
+  spEl.style.display = '';
+  document.getElementById('suggestedValue').textContent = '¥' + fmt(price);
+  document.getElementById('rvAmount').textContent   = '¥' + fmt(amount);
+  document.getElementById('rvRate').textContent     = fmtPct(rate);
+  document.getElementById('rvCostRate').textContent = fmtPct((amount / cost) * 100);
+  setResultColors(true);
+}
+
+function calcBargain() {
+  const price = parseFloat(document.getElementById('barPrice').value) || 0;
+  const rate  = parseFloat(document.getElementById('barRate').value) || 0;
+  const mcEl  = document.getElementById('maxCostBox');
+
+  if (price <= 0 || rate <= 0 || rate >= 100) {
+    mcEl.style.display = 'none';
+    document.getElementById('rvAmount').textContent = '¥0';
+    document.getElementById('rvRate').textContent = '0%';
+    document.getElementById('rvCostRate').textContent = '0%';
+    setResultColors(null);
+    return;
+  }
+
+  const maxCost = price * (1 - rate / 100);
+  const amount  = price - maxCost;
+
+  mcEl.style.display = '';
+  document.getElementById('maxCostValue').textContent = '¥' + fmt(maxCost);
+  document.getElementById('rvAmount').textContent   = '¥' + fmt(amount);
+  document.getElementById('rvRate').textContent     = fmtPct(rate);
+  document.getElementById('rvCostRate').textContent = fmtPct((amount / maxCost) * 100);
+  setResultColors(true);
+}
+
+// ── 计算按钮（记录历史）──
+function doCalculate() {
+  hideError();
+
+  if (mode === 'forward') {
+    const p = parseFloat(document.getElementById('price').value) || 0;
+    const c = parseFloat(document.getElementById('cost').value) || 0;
+    if (p <= 0) { showError('请输入售价'); return; }
+    if (c < 0)  { showError('成本不能为负数'); return; }
+    if (c === 0 && p > 0) {
+      // 成本为0时视为纯利，允许计算
+    }
+    const a  = p - c;
+    const r  = c > 0 ? ((a/p)*100) : (p>0 ? 100 : 0);
+    const cr = c > 0 ? ((a/c)*100) : Infinity;
+    record('forward', { price: p, cost: c }, { amount: a, rate: r, costRate: cr === Infinity ? '∞' : cr });
+    return;
+  }
+
+  if (mode === 'reverse') {
+    const c  = parseFloat(document.getElementById('revCost').value) || 0;
+    const rt = parseFloat(document.getElementById('revRate').value) || 0;
+    if (c <= 0)   { showError('请输入成本'); return; }
+    if (rt <= 0)  { showError('请输入目标毛利率'); return; }
+    if (rt >= 100) { showError('毛利率必须小于 100%'); return; }
+    const p = c / (1 - rt/100);
+    record('reverse', { cost: c, targetRate: rt }, { price: p, amount: p - c, rate: rt, costRate: (p-c)/c*100 });
+    return;
+  }
+
+  if (mode === 'bargain') {
+    const p  = parseFloat(document.getElementById('barPrice').value) || 0;
+    const rt = parseFloat(document.getElementById('barRate').value) || 0;
+    if (p <= 0)   { showError('请输入售价'); return; }
+    if (rt <= 0)  { showError('请输入目标毛利率'); return; }
+    if (rt >= 100) { showError('毛利率必须小于 100%'); return; }
+    const mc = p * (1 - rt/100);
+    record('bargain', { price: p, targetRate: rt }, { maxCost: mc, amount: p - mc, rate: rt, costRate: (p-mc)/mc*100 });
+    return;
+  }
+}
+
+// ── 验证反馈 ──
+function showError(msg) {
+  const btn = document.getElementById('calcBtn');
+  const err = document.getElementById('calcError');
+  btn.classList.add('shake');
+  err.textContent = msg;
+  err.style.display = '';
+  setTimeout(() => { btn.classList.remove('shake'); }, 400);
+}
+
+function hideError() {
+  document.getElementById('calcError').style.display = 'none';
+}
+
+// ── 清空输入 ──
+function clearInputs() {
+  hideError();
+  if (mode === 'forward') {
+    document.getElementById('price').value = '';
+    document.getElementById('cost').value = '';
+    calcForward();
+  } else if (mode === 'reverse') {
+    document.getElementById('revCost').value = '';
+    document.getElementById('revRate').value = '';
+    document.getElementById('suggestedPrice').style.display = 'none';
+    calcReverse();
+  } else {
+    document.getElementById('barPrice').value = '';
+    document.getElementById('barRate').value = '';
+    document.getElementById('maxCostBox').style.display = 'none';
+    calcBargain();
+  }
+}
+
+// ── 毛利率快捷预设 ──
+function setRatePreset(val) {
+  hideError();
+  if (mode === 'reverse') {
+    document.getElementById('revRate').value = val;
+    calcReverse();
+  } else if (mode === 'bargain') {
+    document.getElementById('barRate').value = val;
+    calcBargain();
+  }
+}
+
+// ── 历史记录 ──
+function record(type, inputs, outputs) {
+  const records = JSON.parse(localStorage.getItem('margin_history') || '[]');
+  records.unshift({ type, inputs, outputs, time: Date.now() });
+  if (records.length > 20) records.length = 20; // 存20条，显示5条
+  localStorage.setItem('margin_history', JSON.stringify(records));
+  renderHistory();
+}
+
+function restoreRecord(index) {
+  const records = JSON.parse(localStorage.getItem('margin_history') || '[]');
+  const r = records[index];
+  if (!r) return;
+  hideError();
+
+  if (r.type === 'forward') {
+    switchMode('forward');
+    document.getElementById('price').value = r.inputs.price;
+    document.getElementById('cost').value  = r.inputs.cost;
+    calcForward();
+  } else if (r.type === 'reverse') {
+    switchMode('reverse');
+    document.getElementById('revCost').value = r.inputs.cost;
+    document.getElementById('revRate').value = r.inputs.targetRate;
+    calcReverse();
+  } else if (r.type === 'bargain') {
+    switchMode('bargain');
+    document.getElementById('barPrice').value = r.inputs.price;
+    document.getElementById('barRate').value  = r.inputs.targetRate;
+    calcBargain();
+  }
+}
+
+function deleteRecord(index) {
+  const records = JSON.parse(localStorage.getItem('margin_history') || '[]');
+  records.splice(index, 1);
+  localStorage.setItem('margin_history', JSON.stringify(records));
+  renderHistory();
+}
+
+function clearHistory() {
+  localStorage.removeItem('margin_history');
+  renderHistory();
+}
+
+function renderHistory() {
+  const records = JSON.parse(localStorage.getItem('margin_history') || '[]');
+  const list = document.getElementById('historyList');
+  const clearBtn = document.getElementById('clearBtn');
+
+  if (records.length === 0) {
+    list.innerHTML = '<div class="history-empty">暂无记录</div>';
+    clearBtn.style.display = 'none';
+    return;
+  }
+
+  clearBtn.style.display = '';
+  const display = records.slice(0, 5); // 只显示最近5条，但存储20条
+  list.innerHTML = display.map((r, i) => {
+    let modeLabel, summary, detail;
+    if (r.type === 'forward') {
+      modeLabel = '正向';
+      detail   = '售价¥' + fmt(r.inputs.price) + ' · 成本¥' + fmt(r.inputs.cost);
+      summary  = (r.outputs.amount >= 0 ? '毛利+' : '毛利') + fmt(r.outputs.amount);
+    } else if (r.type === 'reverse') {
+      modeLabel = '定价';
+      detail   = '成本¥' + fmt(r.inputs.cost) + ' · 目标' + fmt(r.inputs.targetRate) + '%';
+      summary  = '卖¥' + fmt(r.outputs.price);
+    } else {
+      modeLabel = '核价';
+      detail   = '售价¥' + fmt(r.inputs.price) + ' · 目标' + fmt(r.inputs.targetRate) + '%';
+      summary  = '进≤¥' + fmt(r.outputs.maxCost);
+    }
+    const cls = r.type === 'bargain' ? 'profit' : (r.outputs.amount >= 0 ? 'profit' : 'loss');
+    return `<div class="history-item" onclick="restoreRecord(${i})">
+      <div class="hmain">
+        <span class="hmode">${modeLabel} · ${detail}</span>
+        <span class="hvalues">毛利率 ${typeof r.outputs.rate === 'number' ? r.outputs.rate.toFixed(2) : r.outputs.rate}%</span>
+      </div>
+      <span class="hmargin ${cls}">${summary}</span>
+      <button class="hdel" onclick="event.stopPropagation();deleteRecord(${i});" title="删除">×</button>
+    </div>`;
+  }).join('');
+}
+
+// ── 键盘 Enter ──
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+    e.preventDefault();
+    doCalculate();
+  }
+});
+
+// ── 初始化 ──
+renderHistory();
+</script>
+</body>
+</html>
